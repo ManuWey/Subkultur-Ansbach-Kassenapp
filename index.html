@@ -1,0 +1,2424 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta 
+    name="viewport" 
+    content="
+        width=device-width,
+        initial-scale=1.0,
+        maximum-scale=1.0,
+        user-scalable=no
+    "
+>
+<title>Kassensystem 2.5</title>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+html, body {
+    touch-action: manipulation;
+    overscroll-behavior: none;
+}
+html {
+    font-size: clamp(14px, 1.5vw, 20px);
+}
+/* ===============================
+   BASIS - Farbwelt
+   =============================== */
+:root {
+    --bg-color: #121212;
+    --panel-bg: #1E1E1E;
+    --text-light: #EDEDED;
+    --accent: #00FF7F;
+    --accent-hover: #00EE76;
+    --danger: #FF4D4D;
+    --input-bg: #2A2A2A;
+    --border-color: #00FF7F;
+}
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", Arial, sans-serif;
+    background: var(--bg-color);
+    color: var(--text-light);
+}
+html, body {
+    height: 100%;
+}
+.container {
+    display: flex;
+    flex-direction: row;
+    height: 100dvh; /* dynamische Viewport-Höhe */
+    width: 100%;
+}
+/* ===============================
+   ZAHLENFARBEN
+   =============================== */
+
+.positive {
+    color: #00e676;
+}
+
+.negative {
+    color: #ff5252;
+}
+
+.neutral {
+    color: var(--text-light);
+}
+
+/* ===============================
+   BUTTONS - Standard
+   =============================== */
+button {
+    background: #000;
+    color: #fff;
+    border: 0.15rem solid var(--accent);
+    font-size: clamp(0.9rem, 1.5vw, 1.3rem);
+    padding: clamp(0.6rem, 1.5vh, 1.2rem);
+    border-radius: 0.8rem;
+    cursor: pointer;
+    transition: 0.2s ease;
+    width: 100%;
+}
+
+button:hover {
+    background: var(--accent);
+    color: #000;
+}
+
+button:active {
+    transform: scale(0.97);
+}
+
+/* ===============================
+   BUTTON - Abschluss
+   =============================== */
+.success-button {
+    background: var(--accent);
+    color: #000;
+    font-weight: bold;
+}
+
+.success-button:hover {
+    background: #00cc66;
+}
+.success-button:disabled {
+    background: #444;
+    color: #999;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* ===============================
+   BUTTON - Abbruch
+   =============================== */
+.cancel-button {
+    border: 2px solid #ff3b3b;
+    color: #ff3b3b;
+}
+
+.cancel-button:hover {
+    background: #ff3b3b;
+    color: #000;
+}
+/* ===============================
+   BUTTON - Gefahr / Reset
+   =============================== */
+button.reset {
+    background: var(--danger);
+    border-color: #990000;
+}
+
+button.reset:hover {
+    background: #FF3B3B;
+}
+
+/* ===============================
+   FLOATING SETTINGS ICON
+   =============================== */
+.left button {
+    font-size: clamp(0.7rem, 1.5vw, 1.1rem);
+    padding: clamp(0.4rem, 0.8vh, 0.8rem);
+}
+.settings-button {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    width: 60px;
+    height: 60px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 30px;
+
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--bg-color);
+    border: 3px solid var(--bg-color);
+
+    z-index: 1000;
+    cursor: pointer;
+
+    padding: 0;
+}
+
+/* ===============================
+   PANELS + STRUKTUR
+   =============================== */
+.cart, .checkout {
+    background: var(--panel-bg);
+    border-top: 3px solid var(--accent);
+    padding: 20px;
+}
+/* Checkout bleibt unten */
+.checkout {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+
+    background: #111;
+    border-top: 3px solid var(--accent);
+    border-left: 3px solid var(--accent);
+
+    padding: 20px;
+    box-sizing: border-box;
+
+    display: flex;
+    flex-direction: column;
+
+}
+.checkout-content {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 5px; /* verhindert Scrollbar-Überdeckung */
+}
+.checkout-buttons {
+    overflow-y: auto;
+}
+.checkout button {
+    margin-bottom: 8px;
+}
+.container {
+    display: flex;
+    flex-direction: row;
+    height: 100dvh;
+    width: 100%;
+    overflow: hidden;
+}
+
+.left, .right {
+    padding: 20px;
+}
+
+/* PRODUKTE */
+.left {
+    flex: 1 1 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(clamp(70px, 8vw, 120px), 1fr));
+    gap: 0.6rem;
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+/* RECHTE SEITE */
+.right {
+    flex: 0 0 clamp(320px, 40%, 600px); /* 🔥 feste Mindestbreite */
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    overflow-y: auto;
+}
+.cart {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: clamp(120px, 25%, 300px); /* 🔥 immer sichtbar */
+}
+
+#cartList {
+    flex: 1;
+    overflow-y: auto;
+
+    min-height: calc(2 * clamp(2.5rem, 6vh, 4rem));
+}
+
+.cart-row {
+    font-size: clamp(0.9rem, 2.5vw, 1.3rem);
+    min-height: clamp(2.5rem, 6vh, 4rem);
+}
+
+.remove-item {
+    background: transparent;
+    border: 2px solid var(--danger);
+    color: var(--danger);
+    font-size: 16px;
+    padding: 6px;
+}
+
+.remove-item:hover {
+    background: var(--danger);
+    color: white;
+}
+.cart-row {
+    font-size: clamp(0.9rem, 2.5vw, 1.3rem);
+    min-height: clamp(2.5rem, 6vh, 4rem);
+}
+
+.cart-row.swiping {
+    background: var(--danger);
+}
+/* ===============================
+   TEXT + ANZEIGE
+   =============================== */
+.big-display {
+    font-size: clamp(1.8rem, 4vw, 3rem);
+}
+
+/* ===============================
+   GRID FÜR ZAHLUNGEN
+   =============================== */
+   
+   /* Checkout Bereich passt sich Inhalt an */
+.checkout-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+.summary-values div:first-child {
+    font-size: clamp(1.3rem, 3vw, 2rem);
+}
+/* ===============================
+   GESAMTBETRAG HERVORHEBEN
+   =============================== */
+
+#total {
+    font-size: clamp(1.8rem, 5vw, 3.2rem);
+    font-weight: 700;
+    display: inline-block;
+    margin-left: 0.3rem;
+}
+
+.summary-values div {
+    font-size: clamp(1rem, 2.5vw, 1.8rem);
+}
+/* ===============================
+   GELD BUTTONS – NEBENEINANDER
+   =============================== */
+
+.money-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr));
+    gap: 0.6rem;
+    margin-top: 0.8rem;
+}
+
+.money-grid button {
+    width: 100%;
+}
+
+/* ===============================
+   INPUT + TEXTAREA
+   =============================== */
+input, textarea {
+    background: var(--input-bg);
+    color: var(--text-light);
+    border: 2px solid var(--border-color);
+    font-size: 18px;
+    border-radius: 6px;
+    padding: 12px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* ===============================
+   SETTINGS OVERLAY – RESPONSIVE
+   =============================== */
+
+.settings {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+
+    display: none;
+    justify-content: center;
+    align-items: center;
+
+    padding: clamp(0.5rem, 2vw, 2rem);
+}
+.settings-content input {
+    font-size: clamp(0.8rem, 2vw, 1.2rem);
+}
+.settings-content {
+
+    background: var(--panel-bg);
+
+    width: clamp(300px, 90vw, 900px);
+    max-height: 90dvh;
+
+    padding: clamp(1rem, 3vw, 2.5rem);
+
+    border-radius: clamp(0.8rem, 2vw, 1.2rem);
+    border: 3px solid var(--accent);
+
+    overflow-y: auto;
+
+    display: flex;
+    flex-direction: column;
+    gap: clamp(0.8rem, 2vh, 1.5rem);
+}
+
+.settings-content h2 {
+    font-size: clamp(1.2rem, 3vw, 2rem);
+}
+
+.settings-content h3 {
+    font-size: clamp(1rem, 2.5vw, 1.4rem);
+}
+#helperButtons {
+    display: row;
+    grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+    gap: 0.8rem;
+}
+.helper-input-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1rem;
+}
+#helperList {
+    display: grid;
+    gap: 0.8rem;
+    margin-top: 1rem;
+}
+
+.helper-item {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 1rem;
+
+    background: rgba(255,255,255,0.05);
+    padding: clamp(0.6rem, 2vw, 1rem);
+    border-radius: 10px;
+
+    font-size: clamp(1rem, 2.5vw, 1.2rem);
+}
+
+.helper-item button {
+    min-height: clamp(2.5rem, 6vh, 3.2rem);
+}
+/* ===============================
+   SETTINGS INPUT OPTIMIERUNG
+   =============================== */
+
+.settings-content input,
+.settings-content select,
+.settings-content button {
+
+    font-size: clamp(1rem, 2.8vw, 1.3rem);
+    padding: clamp(0.6rem, 2vw, 1rem);
+    min-height: clamp(2.8rem, 6vh, 3.5rem);
+    border-radius: 10px;
+}
+
+/* ===============================
+   RESPONSIVE - TABLET TOUCH
+   =============================== */
+@media (max-width: 1024px) {
+    .left {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    button {
+    width: 100%;
+    font-size: clamp(0.9rem, 2vw, 1.3rem);
+    padding: clamp(0.6rem, 1.2vh, 1rem);
+    border-radius: 0.8rem;
+}
+
+    .big-display {
+        font-size: 34px;
+    }
+@media (max-width: 768px) and (orientation: portrait) {
+
+    .right {
+        flex: 1 1 60%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden; /* 🔥 verhindert Mitwachsen */
+    }
+
+    .cart {
+        flex: 0 0 auto;
+
+        /* 🔥 exakt Platz für 2 Zeilen */
+        height: calc(2 * clamp(2.5rem, 6vh, 4rem) + 3rem);
+
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    #cartList {
+        flex: 1;
+        overflow-y: auto;  /* 🔥 nur hier scrollen */
+    }
+
+    .checkout-summary {
+        flex: 1;
+        overflow-y: auto;  /* Checkout bleibt bedienbar */
+    }
+	.helper-input-row {
+        grid-template-columns: 1fr;
+    }
+
+    .helper-input-row button {
+        width: 100%;
+    }
+}
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <div class="left" id="products"></div>
+
+    <div class="right">
+        <div class="cart">
+            <h2>Warenkorb</h2>
+            <div id="cartList"></div>
+        </div>
+
+        <div class="checkout-summary">
+
+    <div class="checkout-summary">
+
+    <div class="summary-values">
+        <div>Gesamt: <span id="total">0.00</span> €</div>
+        <div>Gegeben: <span id="given">0.00</span> €</div>
+        <div>Rückgeld: <span id="change">0.00</span> €</div>
+    </div>
+    
+    <button id="completeBtn"
+        class="success-button"
+        onclick="completeSale()"
+        disabled>
+    Verkauf<br>abschließen
+</button>
+
+</div>
+            <div class="money-grid">
+                <button onclick="pay(5)">5</button>
+                <button onclick="pay(10)">10</button>
+                <button onclick="pay(20)">20</button>
+                <button onclick="pay(50)">50</button>
+                <button onclick="pay(100)">100</button>
+            </div>
+
+			<button onclick="openNumpadModal()">
+				Eigener Betrag
+			</button>
+            <button onclick="payExact()">Passend</button>
+            <button onclick="openHelper()">Eigenbedarf</button>
+			<button class="cancel-button" onclick="cancelSale()">
+				Verkauf abbrechen
+				</button>
+            <button
+    class="settings-button"
+    onclick="openSettingsPasswordPopup()"
+>
+    <span>⚙</span>
+</button>
+
+        </div>
+    </div>
+	<!-- HELFER MODAL -->
+<div class="settings" id="helperModal">
+    <div class="settings-content">
+        <h2>Eigenbedarf – Helfer auswählen</h2>
+        <div id="helperButtons"></div>
+        <button class="cancel-button"onclick="closeHelperModal()">Abbrechen</button>
+    </div>
+</div>
+</div>
+
+<!-- SETTINGS -->
+<div class="settings" id="settingsModal">
+    <div class="settings-content">
+
+        <h2>⚙ Einstellungen</h2>
+
+        <h3>💻 Gerätename</h3>
+
+<div class="helper-input-row">
+
+    <input
+        type="text"
+        id="deviceNameInput"
+        placeholder="z.B. Theke-1"
+    >
+
+    <button onclick="saveDeviceName()">
+        Speichern
+    </button>
+
+</div>
+
+        <h3>📊 Tagesabschluss</h3>
+        <button onclick="dayClose()">Tagesumsatz anzeigen</button>
+
+        <h3>📁 Export</h3>
+        <button onclick="openExportModal()">Export .xls</button>
+
+        <h3>💾 Datensicherung</h3>
+        <p style="font-size:0.95rem;line-height:1.4;">Lokale Sicherung als JSON-Datei erstellen oder eine frühere Sicherung wiederherstellen. Der Google-Drive-Export wird geschützt über Cloudflare ausgeführt.</p>
+        <button onclick="downloadLocalBackup()">⬇ Lokale Sicherung erstellen</button>
+        <label for="backupFileInput" style="display:block;margin-top:10px;font-weight:bold;">Sicherung wiederherstellen</label>
+        <input type="file" id="backupFileInput" accept=".json,application/json" onchange="restoreLocalBackup(event)" style="display:block;width:100%;margin:8px 0 14px;">
+
+        <h3>👥 Helfer-Liste</h3>
+		<div class="helper-input-row">
+    <input type="text" id="newHelper" placeholder="Helfername">
+	<select id="helperCategory">
+    <option value="Helfer">Helfer</option>
+    <option value="Band">Band</option>
+    <option value="Techniker">Techniker</option>
+</select>
+    <button style="background:#ff9800;" onclick="addHelper()">Hinzufügen</button>
+</div>
+<button onclick="openHelperQuery()">
+    📋 Helfer-Abfrage
+</button>
+
+<div id="helperList"></div>
+
+        <h3>🥤 Getränke & Preise</h3>
+		<div id="drinkList"></div>
+		<button style="background:#00FF7F;" onclick="addDrinkRow()">➕ Getränk hinzufügen</button>
+		<button style="background:#ff9800;" onclick="resetDrinks()">
+		🔄 Getränke zurücksetzen
+		</button>
+        <button onclick="saveSettings()">Speichern</button>
+        <button onclick="closeSettings()">Schließen</button>
+		
+		<hr style="margin:30px 0;">
+
+<h3 style="color:red;">⚠ System</h3>
+<button style="background:#e53935;" onclick="openPasswordModal()">
+    Kasse zurücksetzen
+</button>
+    </div>
+	
+</div>
+
+<script>
+// Öffentliche Worker-Adresse; Passwörter und Google-Apps-Script-Adresse liegen ausschließlich als Cloudflare-Secrets.
+const KASSE_WORKER_URL = "https://subkultur-kasse-backup.weybrechtmanuel90.workers.dev/";
+let workerPassword = null;
+
+async function verifyWorkerPassword(password) {
+    const response = await fetch(KASSE_WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "verify", password })
+    });
+    let result = {};
+    try { result = await response.json(); } catch (_) {}
+    if (!response.ok || !result.success) return false;
+    workerPassword = password;
+    return true;
+}
+
+let savedCart =
+    JSON.parse(localStorage.getItem("currentCart"));
+
+let savedGiven =
+    parseFloat(localStorage.getItem("currentGiven")) || 0;
+	
+    function saveDrinks(){
+    localStorage.setItem("drinks", JSON.stringify(drinks));
+}
+
+function saveHelpers(){
+    localStorage.setItem("helpers", JSON.stringify(helpers));
+}
+const defaultDrinks = [
+    {name:"Bier/Helles/Export", price:4},
+	{name:"Keller / Pils",price:4},
+	{name:"Radler",price:4},
+	{name:"Alkoholfreies Bier",price:4},
+	{name:"Weinschorle Sauer",price:4},
+	{name:"Weinschorle Süß",price:4},
+    {name:"Wasser Spritzig", price:2},
+	{name:"Wasser Still",price:2},
+	{name:"Mate",price:4},
+	{name:"Mate-Cola",price:3.5},
+	{name:"Apelschorle",price:3},
+	{name:"Johannisbeer Schorle",price:3},
+	{name:"Spezi",price:3},
+	{name:"Limo Orange",price:3},
+	{name:"Limo Zitrone",price:3},
+	{name:"Laternenmaß",price:5},
+	{name:"Limoncello",price:5}
+];
+let drinks = JSON.parse(localStorage.getItem("drinks"));
+
+if(!drinks || drinks.length === 0){
+    drinks = defaultDrinks;
+}
+let helpers = JSON.parse(localStorage.getItem("helpers")) || [
+
+    {
+        name: "Helfer",
+        category: "Helfer"
+    }
+];
+
+let sales = JSON.parse(localStorage.getItem("sales")) || [];
+let eigenbedarfLog = JSON.parse(localStorage.getItem("eigenbedarf")) || [];
+
+let cart = savedCart || {};
+let given = savedGiven || 0;
+
+/* PRODUKTE */
+function renderProducts(){
+    const container = document.getElementById("products");
+    container.innerHTML="";
+
+    drinks.forEach(d=>{
+        const btn=document.createElement("button");
+        btn.innerText=d.name+"\n"+d.price+"€";
+        btn.onclick=()=>addToCart(d);
+        container.appendChild(btn);
+    });
+
+    // Pfand +
+    const pfandPlus = document.createElement("button");
+    pfandPlus.innerText="Pfand +";
+    pfandPlus.onclick=()=>addPfand(2);
+    container.appendChild(pfandPlus);
+
+    // Pfand -
+    const pfandMinus = document.createElement("button");
+    pfandMinus.innerText="Pfand -";
+    pfandMinus.onclick=()=>addPfand(-2);
+    container.appendChild(pfandMinus);
+}
+
+function addToCart(drink){
+    if(!cart[drink.name]) cart[drink.name]={qty:0, price:drink.price};
+    cart[drink.name].qty++;
+    updateCart();
+    updateCompleteButton();
+}
+function removeOneFromCart(productName){
+
+    if(!cart[productName]) return;
+
+    cart[productName].qty--;
+
+    if(cart[productName].qty <= 0){
+        delete cart[productName];
+    }
+
+    updateCart();
+    updateCompleteButton();
+	saveCurrentSale();
+	enableSwipe();
+}
+function addPfand(amount){
+
+    const name = amount > 0 ? "Pfand +" : "Pfand -";
+
+    if(!cart[name]){
+        cart[name] = {
+            qty: 0,
+            price: amount
+        };
+    }
+
+    cart[name].qty++;
+    updateCart();
+    updateCompleteButton();
+}
+
+/* WARENKORB */
+function updateCart(){
+
+    let total = 0;
+    let list = document.getElementById("cartList");
+    list.innerHTML = "";
+
+    for(let k in cart){
+
+        let line = cart[k].qty * cart[k].price;
+        total += line;
+
+        list.innerHTML += `
+            <div class="cart-row" data-product="${k}">
+                <span>${cart[k].qty}x ${k}</span>
+                <span>${line.toFixed(2)}€</span>
+            </div>
+        `;
+    }
+
+    document.getElementById("total").innerText = total.toFixed(2);
+    updateChange();
+    updateCompleteButton();
+	saveCurrentSale();
+
+    enableSwipe(); // 👈 Swipe aktivieren
+}
+function updateValueColor(elementId, value){
+
+    const el = document.getElementById(elementId);
+
+    el.classList.remove("positive","negative","neutral");
+
+    if(value > 0){
+        el.classList.add("positive");
+    }
+    else if(value < 0){
+        el.classList.add("negative");
+    }
+    else{
+        el.classList.add("neutral");
+    }
+}
+/* ZAHLUNG */
+function pay(amount){ given+=amount; updateChange(); }
+function payCustom(){
+
+    let field = document.getElementById("customPay");
+
+    let value = field.value.replace(",", ".");
+    let val = parseFloat(value);
+
+    if(!isNaN(val)){
+        given += val;
+    }
+
+    field.value = "";
+    updateChange();
+    updateCompleteButton();
+	saveCurrentSale();
+}
+function payExact(){
+    given=parseFloat(document.getElementById("total").innerText);
+    updateChange();
+    updateCompleteButton();
+	saveCurrentSale();
+}
+
+function updateChange(){
+
+    let total = parseFloat(document.getElementById("total").innerText);
+    let change = given - total;
+
+    document.getElementById("given").innerText = given.toFixed(2);
+    document.getElementById("change").innerText = change.toFixed(2);
+
+    updateValueColor("total", total);
+    updateValueColor("given", given);
+    updateValueColor("change", change);
+
+    updateCompleteButton();
+	saveCurrentSale();
+}
+
+function completeSale(){
+
+    let itemsArray = [];
+
+    for(let product in cart){
+        for(let i=0; i<cart[product].qty; i++){
+            itemsArray.push({
+                name: product,
+                price: cart[product].price
+            });
+        }
+    }
+
+    const totalAmount = parseFloat(document.getElementById("total").innerText);
+
+sales.push({
+    time: new Date().toLocaleString(),
+    items: itemsArray,
+    total: totalAmount,
+    payout: totalAmount < 0
+});
+
+    localStorage.setItem("sales", JSON.stringify(sales));
+
+	cart = {};
+	given = 0;
+    localStorage.removeItem("currentCart");
+	localStorage.removeItem("currentGiven");
+
+    updateCart();
+    updateCompleteButton();
+}
+function updateCompleteButton(){
+
+    const btn = document.getElementById("completeBtn");
+
+    // 🔥 Warenkorb muss wirklich Inhalte haben
+    const cartHasItems = Object.keys(cart).length > 0;
+
+    const total = parseFloat(document.getElementById("total").innerText);
+
+    // 🔥 Bei negativem Gesamtbetrag (Pfand -)
+    // darf Verkauf sofort abgeschlossen werden
+    const enoughMoney =
+        total < 0
+            ? true
+            : given >= total;
+
+    btn.disabled = !(cartHasItems && enoughMoney);
+}
+function cancelSale(){
+
+    if(Object.keys(cart).length === 0){
+
+        showPopup(
+            "Kein aktiver Verkauf vorhanden.",
+            "Hinweis"
+        );
+
+        return;
+    }
+
+    showConfirmPopup(
+        "Aktuellen Verkauf wirklich abbrechen?",
+        () => {
+
+            cart = {};
+			given = 0;
+			localStorage.removeItem("currentCart");
+			localStorage.removeItem("currentGiven");
+
+            // Eingabefeld leeren
+            const customField =
+                document.getElementById("customPay");
+
+            if(customField){
+                customField.value = "";
+            }
+
+            updateCart();
+
+            showPopup(
+                "Verkauf wurde abgebrochen.",
+                "Erfolg"
+            );
+        },
+        "Verkauf abbrechen"
+    );
+}
+
+/* HELFER */
+function openHelper(){
+
+    if(Object.keys(cart).length === 0){
+
+        showPopup(
+            "Warenkorb ist leer.",
+            "Hinweis"
+        );
+
+        return;
+    }
+
+    const container =
+        document.getElementById("helperButtons");
+
+    container.innerHTML = "";
+
+    const categories = [
+        "Helfer",
+        "Band",
+        "Techniker"
+    ];
+
+    categories.forEach((category,index)=>{
+
+        const categoryHelpers =
+    helpers
+        .filter(
+            h => h.category === category
+        )
+        .sort((a,b)=>
+            a.name.localeCompare(
+                b.name,
+                "de",
+                { sensitivity:"base" }
+            )
+        );
+
+        // Überschrift
+        const title =
+            document.createElement("h3");
+
+        title.innerText = category;
+
+        title.style.textAlign = "center";
+        title.style.marginBottom = "10px";
+
+        container.appendChild(title);
+
+        // Personen der Kategorie
+        categoryHelpers.forEach(helper=>{
+
+            const btn =
+                document.createElement(
+                    "button"
+                );
+
+            btn.innerText =
+                helper.name;
+
+            btn.onclick = () =>
+                confirmEigenbedarf(
+                    helper.name
+                );
+
+            container.appendChild(btn);
+        });
+    });
+
+    document.getElementById(
+        "helperModal"
+    ).style.display = "flex";
+}
+function closeHelperModal(){
+    document.getElementById("helperModal").style.display="none";
+}
+function addHelper(){
+
+    const input =
+        document.getElementById("newHelper");
+
+    const category =
+        document.getElementById("helperCategory");
+
+    const name = input.value.trim();
+
+    if(name === ""){
+
+        showPopup(
+            "Bitte einen Namen eingeben.",
+            "Hinweis"
+        );
+
+        return;
+    }
+
+    if(
+        helpers.some(
+            h => h.name.toLowerCase() ===
+                 name.toLowerCase()
+        )
+    ){
+        showPopup(
+            "Person existiert bereits.",
+            "Hinweis"
+        );
+        return;
+    }
+
+    helpers.push({
+        name: name,
+        category: category.value
+    });
+
+    saveHelpers();
+
+    input.value = "";
+
+    renderHelperList();
+
+    showPopup(
+        "Person erfolgreich angelegt.",
+        "Erfolg"
+    );
+}
+function renderHelperList(){
+
+    const container =
+        document.getElementById("helperList");
+
+    container.innerHTML = "";
+
+    [...helpers]
+        .sort((a,b) =>
+            a.name.localeCompare(
+                b.name,
+                "de",
+                { sensitivity: "base" }
+            )
+        )
+        .forEach((helper,index)=>{
+
+            const row =
+                document.createElement("div");
+
+            row.className = "helper-item";
+
+            row.innerHTML = `
+                <span>
+                    <strong>${helper.name}</strong><br>
+                    <small>${helper.category}</small>
+                </span>
+
+                <button onclick="removeHelperByName('${helper.name}')">
+    ❌
+</button>
+            `;
+
+            container.appendChild(row);
+        });
+}
+function removeHelperByName(name){
+
+    const index =
+        helpers.findIndex(
+            h => h.name === name
+        );
+
+    if(index === -1){
+        return;
+    }
+
+    showConfirmPopup(
+        "Person wirklich entfernen?",
+        () => {
+
+            helpers.splice(index,1);
+
+            saveHelpers();
+            renderHelperList();
+        }
+    );
+}
+function removeHelper(index){
+    if(confirm("Helfer wirklich entfernen?")){
+        helpers.splice(index,1);
+        saveHelpers();
+        renderHelperList();
+    }
+}
+function confirmEigenbedarf(helperName){
+
+    for(let product in cart){
+
+        eigenbedarfLog.push({
+
+            time:
+                new Date()
+                .toLocaleString(),
+
+            helper: helperName,
+
+            product: product,
+
+            quantity:
+                cart[product].qty
+        });
+    }
+
+    localStorage.setItem(
+        "eigenbedarf",
+        JSON.stringify(
+            eigenbedarfLog
+        )
+    );
+
+    cart = {};
+    given = 0;
+
+    localStorage.removeItem(
+        "currentCart"
+    );
+
+    localStorage.removeItem(
+        "currentGiven"
+    );
+
+    updateCart();
+
+    closeHelperModal();
+
+    showPopup(
+        "Eigenbedarf für\n" +
+        helperName +
+        "\nwurde gespeichert.",
+        "Erfolg"
+    );
+  localStorage.removeItem("currentCart");
+	localStorage.removeItem("currentGiven");
+    updateCart();
+
+    closeHelperModal();
+    showPopup("Eigenbedarf für " + helperName + " gespeichert.");
+}
+/* EINSTELLUNGEN */
+function openSettings(){
+    openSettingsPasswordPopup();
+}
+function closeSettings(){
+    document.getElementById("settingsModal").style.display="none";
+}
+function saveSettings(){
+    saveHelpers();
+    saveDrinks();
+    renderProducts();
+    closeSettings();
+}
+
+function toggleDark(){ document.body.classList.toggle("dark"); }
+
+function dayClose(){
+
+    let totalDay = sales.reduce(
+        (sum, s) => sum + parseFloat(s.total),
+        0
+    );
+
+    document.getElementById("dayCloseTotal").innerText =
+        totalDay.toFixed(2);
+
+    document.getElementById("dayCloseModal").style.display =
+        "flex";
+}
+
+function closeDayCloseModal(){
+
+    document.getElementById("dayCloseModal").style.display =
+        "none";
+}
+
+/* ==========================
+   LOKALE DATENSICHERUNG
+   Google-Drive-Export bleibt davon getrennt und wird über Cloudflare ausgeführt.
+===========================*/
+function downloadLocalBackup(){
+    try{
+        const backup = {
+            format: "subkultur-kasse-backup",
+            version: 1,
+            createdAt: new Date().toISOString(),
+            data: {
+                drinks: drinks,
+                helpers: helpers,
+                sales: sales,
+                eigenbedarf: eigenbedarfLog,
+                deviceName: deviceName,
+                currentCart: cart,
+                currentGiven: given,
+                darkMode: document.body.classList.contains("dark")
+            }
+        };
+        const blob = new Blob([JSON.stringify(backup, null, 2)], {type:"application/json;charset=utf-8"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const stamp = new Date().toISOString().replace(/[:.]/g,"-");
+        const safeName = (deviceName || "Kasse").replace(/[^a-zA-Z0-9_-]/g, "_");
+        a.href = url;
+        a.download = "KassenSicherung_" + safeName + "_" + stamp + ".json";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url), 1000);
+        showPopup("Die lokale Sicherungsdatei wurde erstellt. Bewahre sie außerhalb des Geräts auf.", "Sicherung erstellt");
+    }catch(err){
+        showPopup("Lokale Sicherung fehlgeschlagen: " + err.message, "Fehler");
+    }
+}
+
+function restoreLocalBackup(event){
+    const input = event.target;
+    const file = input.files && input.files[0];
+    if(!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(){
+        try{
+            const backup = JSON.parse(reader.result);
+            if(!backup || backup.format !== "subkultur-kasse-backup" || !backup.data){
+                throw new Error("Die Datei ist keine gültige Sicherung dieser Kasse.");
+            }
+            const d = backup.data;
+            if(!Array.isArray(d.drinks) || !Array.isArray(d.helpers) ||
+               !Array.isArray(d.sales) || !Array.isArray(d.eigenbedarf)){
+                throw new Error("Die Sicherungsdatei enthält nicht alle benötigten Daten.");
+            }
+            if(!confirm("ACHTUNG: Die aktuellen Kassendaten werden durch den Stand der Sicherung ersetzt. Erstelle bei Bedarf zuerst eine aktuelle Sicherung. Fortfahren?")){
+                input.value = "";
+                return;
+            }
+            localStorage.setItem("drinks", JSON.stringify(d.drinks));
+            localStorage.setItem("helpers", JSON.stringify(d.helpers));
+            localStorage.setItem("sales", JSON.stringify(d.sales));
+            localStorage.setItem("eigenbedarf", JSON.stringify(d.eigenbedarf));
+            if(typeof d.deviceName === "string") localStorage.setItem("deviceName", d.deviceName);
+            if(d.currentCart && typeof d.currentCart === "object") localStorage.setItem("currentCart", JSON.stringify(d.currentCart));
+            else localStorage.removeItem("currentCart");
+            if(Number.isFinite(Number(d.currentGiven))) localStorage.setItem("currentGiven", String(d.currentGiven));
+            else localStorage.removeItem("currentGiven");
+            showPopup("Sicherung wurde eingespielt. Die Kasse wird neu geladen.", "Wiederherstellung erfolgreich");
+            setTimeout(()=>location.reload(), 900);
+        }catch(err){
+            showPopup("Sicherung konnte nicht wiederhergestellt werden: " + err.message, "Fehler");
+            input.value = "";
+        }
+    };
+    reader.onerror = function(){
+        showPopup("Die Sicherungsdatei konnte nicht gelesen werden.", "Fehler");
+        input.value = "";
+    };
+    reader.readAsText(file);
+}
+
+function exportExcel(){
+    
+    let detailData=[["Zeit","Typ","Helfer","Produkt","Menge","Gesamt EUR"]];
+
+    sales.forEach(s=>{
+
+        // 🔹 Alte Verkäufe konvertieren falls nötig
+        let items = [];
+
+        if(s.items && Array.isArray(s.items)){
+            items = s.items;
+        } 
+        else if(s.cart){
+            let parsedCart = JSON.parse(s.cart);
+            for(let product in parsedCart){
+                for(let i=0;i<parsedCart[product].qty;i++){
+                    items.push({
+                        name: product,
+                        price: parsedCart[product].price
+                    });
+                }
+            }
+        }
+        else{
+            return; // überspringt kaputte Einträge
+        }
+
+        let productCount = {};
+
+        items.forEach(item=>{
+            if(!productCount[item.name]){
+                productCount[item.name] = {qty:0, price:item.price};
+            }
+            productCount[item.name].qty += 1;
+        });
+
+        for(let product in productCount){
+            detailData.push([
+                s.time,
+                "Verkauf",
+                "",
+                product,
+                productCount[product].qty,
+                (productCount[product].qty * productCount[product].price).toFixed(2)
+            ]);
+        }
+    });
+
+    eigenbedarfLog.forEach(e=>{
+        detailData.push([
+            e.time,
+            "Eigenbedarf",
+            e.helper,
+            e.product,
+            e.quantity,
+            0
+        ]);
+    });
+
+
+    /* ==========================
+       GETRÄNKE ÜBERSICHT
+    ===========================*/
+
+    let summary = {};
+
+    sales.forEach(s=>{
+
+        let items = [];
+
+        if(s.items && Array.isArray(s.items)){
+            items = s.items;
+        } 
+        else if(s.cart){
+            let parsedCart = JSON.parse(s.cart);
+            for(let product in parsedCart){
+                for(let i=0;i<parsedCart[product].qty;i++){
+                    items.push({
+                        name: product
+                    });
+                }
+            }
+        }
+        else{
+            return;
+        }
+
+        items.forEach(item=>{
+            if(!summary[item.name]){
+                summary[item.name] = {verkauf:0, eigenbedarf:0};
+            }
+            summary[item.name].verkauf += 1;
+        });
+    });
+
+    eigenbedarfLog.forEach(e=>{
+        if(!summary[e.product]){
+            summary[e.product] = {verkauf:0, eigenbedarf:0};
+        }
+        summary[e.product].eigenbedarf += e.quantity;
+    });
+
+    let summaryData=[["Produkt","Verkauf","Eigenbedarf","Gesamt"]];
+
+    for(let product in summary){
+        summaryData.push([
+            product,
+            summary[product].verkauf,
+            summary[product].eigenbedarf,
+            summary[product].verkauf + summary[product].eigenbedarf
+        ]);
+    }
+
+
+    /* ==========================
+       HELFER ÜBERSICHT
+    ===========================*/
+
+    let helperSummary = {};
+
+    eigenbedarfLog.forEach(e=>{
+        if(!helperSummary[e.helper]){
+            helperSummary[e.helper] = {};
+        }
+        if(!helperSummary[e.helper][e.product]){
+            helperSummary[e.helper][e.product] = 0;
+        }
+        helperSummary[e.helper][e.product] += e.quantity;
+    });
+
+    let helperData=[["Helfer","Produkt","Menge"]];
+
+    for(let helper in helperSummary){
+        for(let product in helperSummary[helper]){
+            helperData.push([
+                helper,
+                product,
+                helperSummary[helper][product]
+            ]);
+        }
+    }
+
+
+    /* ==========================
+       WORKBOOK ERSTELLEN
+    ===========================*/
+
+    let wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(detailData), "Transaktionen");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), "Getränke Übersicht");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(helperData), "Eigenbedarf Helfer");
+
+
+    /* ==========================
+       DATEINAME MIT DATUM + UHRZEIT
+    ===========================*/
+
+    let now = new Date();
+    const safeDeviceName = deviceName
+    .replace(/[^a-zA-Z0-9_-]/g, "_");
+
+let filename =
+    "Kassenexport_" +
+    safeDeviceName + "_" +
+    now.getFullYear() +
+    ("0"+(now.getMonth()+1)).slice(-2) +
+    ("0"+now.getDate()).slice(-2) + "_" +
+    ("0"+now.getHours()).slice(-2) +
+    ("0"+now.getMinutes()).slice(-2) +
+    ("0"+now.getSeconds()).slice(-2) +
+    ".xlsx";
+
+
+    /* ==========================
+       BASE64 ERZEUGEN
+    ===========================*/
+
+    const base64 = XLSX.write(wb,{
+        bookType:'xlsx',
+        type:'base64'
+    });
+
+
+    /* ==========================
+       GOOGLE DRIVE UPLOAD
+    ===========================*/
+
+    const uploadPassword = workerPassword || prompt("Cloudflare-Passwort für den Google-Drive-Export eingeben:");
+    if (!uploadPassword) return;
+
+    fetch(KASSE_WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            action: "upload",
+            password: uploadPassword,
+            file: base64,
+            filename: filename
+        })
+    })
+    .then(async res => {
+        const result = await res.json();
+        if (!res.ok || !result.success) throw new Error(result.message || "Upload fehlgeschlagen.");
+        workerPassword = uploadPassword;
+        showPopup("Export erfolgreich gespeichert:\n" + (result.message || "Google Drive hat den Export angenommen."));
+    })
+    .catch(err => {
+        showPopup("Fehler beim Upload:\n" + err.message);
+    });
+}
+function openExportModal(){
+    document.getElementById("exportModal").style.display = "flex";
+}
+
+function closeExportModal(){
+    document.getElementById("exportModal").style.display = "none";
+}
+
+function confirmExportExcel(){
+
+    closeExportModal();
+
+    exportExcel();
+}
+
+function renderDrinkSettings(){
+
+    const container = document.getElementById("drinkList");
+    container.innerHTML = "";
+
+    drinks.forEach((drink, index)=>{
+
+        const row = document.createElement("div");
+        row.style.display="grid";
+        row.style.gridTemplateColumns="2fr 1fr auto";
+        row.style.gap="10px";
+        row.style.marginBottom="10px";
+
+        row.innerHTML = `
+            <input type="text" value="${drink.name}" onchange="updateDrinkName(${index}, this.value)">
+            <input type="number" step="0.01" value="${drink.price}" onchange="updateDrinkPrice(${index}, this.value)">
+            <button onclick="removeDrink(${index})">❌</button>
+        `;
+
+        container.appendChild(row);
+    });
+}
+function updateDrinkName(index, value){
+    drinks[index].name = value;
+    saveDrinks();
+}
+
+function updateDrinkPrice(index, value){
+    drinks[index].price = parseFloat(value);
+    saveDrinks();
+}
+
+function addDrinkRow(){
+    drinks.push({name:"Neues Getränk", price:0});
+    saveDrinks();
+    renderDrinkSettings();
+}
+
+function removeDrink(index){
+    drinks.splice(index,1);
+    saveDrinks();
+    renderDrinkSettings();
+}
+async function resetRegister(){
+
+    const password = prompt("Passwort zum Zurücksetzen eingeben:");
+    if (password === null) return;
+    if (!(await verifyWorkerPassword(password))) {
+        showPopup("Falsches Passwort oder Cloudflare nicht erreichbar.", "Fehler");
+        return;
+    }
+
+    if(!confirm("ACHTUNG!\n\nSoll wirklich die gesamte Kasse zurückgesetzt werden?\nAlle Verkäufe und Eigenbedarf-Daten werden gelöscht.")){
+        return;
+    }
+
+    // Speicher leeren
+    localStorage.removeItem("sales");
+    localStorage.removeItem("eigenbedarf");
+
+    // Variablen zurücksetzen
+    sales = [];
+    eigenbedarfLog = [];
+    cart = {};
+    given = 0;
+
+    updateCart();
+
+    showPopup("Kasse wurde erfolgreich zurückgesetzt.");
+
+    location.reload();
+}
+function openPasswordModal(){
+
+    document.getElementById("passwordModal").style.display = "flex";
+
+    const input = document.getElementById("resetPasswordInput");
+
+    input.value = "";
+    input.type = "password";
+
+    setTimeout(()=>{
+        input.focus();
+    },100);
+}
+
+function closePasswordModal(){
+    document.getElementById("passwordModal").style.display = "none";
+}
+
+function showPasswordTemporarily(){
+
+    const input = document.getElementById("resetPasswordInput");
+
+    input.type = "text";
+
+    setTimeout(()=>{
+        input.type = "password";
+    },1000);
+}
+
+async function confirmResetRegister(){
+
+    const input = document.getElementById("resetPasswordInput");
+    const password = input.value;
+
+    if (!(await verifyWorkerPassword(password))) {
+        showPopup("Falsches Passwort oder Cloudflare nicht erreichbar.");
+        return;
+    }
+
+    closePasswordModal();
+
+    if(!confirm(
+        "ACHTUNG!\n\nSoll wirklich die gesamte Kasse zurückgesetzt werden?\nAlle Verkäufe und Eigenbedarf-Daten werden gelöscht."
+    )){
+        return;
+    }
+
+    // Speicher leeren
+    localStorage.removeItem("sales");
+    localStorage.removeItem("eigenbedarf");
+
+    // Variablen zurücksetzen
+    sales = [];
+    eigenbedarfLog = [];
+    cart = {};
+    given = 0;
+
+    updateCart();
+
+    showPopup("Kasse wurde erfolgreich zurückgesetzt.");
+
+    location.reload();
+}
+function resetDrinks(){
+
+    showConfirmPopup(
+        "Getränkeliste wirklich auf Standard zurücksetzen?",
+        () => {
+
+            localStorage.removeItem("drinks");
+
+            drinks = [...defaultDrinks];
+
+            saveDrinks();
+            renderDrinkSettings();
+            renderProducts();
+
+            showPopup(
+                "Getränkeliste wurde zurückgesetzt.",
+                "Erfolg"
+            );
+        }
+    );
+}
+function enableSwipe(){
+
+    const rows = document.querySelectorAll(".cart-row");
+
+    rows.forEach(row => {
+
+        let startX = 0;
+        let currentX = 0;
+        let threshold = 100; // Wischdistanz
+
+        row.addEventListener("touchstart", e => {
+            startX = e.touches[0].clientX;
+        });
+
+        row.addEventListener("touchmove", e => {
+            currentX = e.touches[0].clientX;
+            let diff = currentX - startX;
+
+            if(diff < 0){ // nur nach links
+                row.style.transform = `translateX(${diff}px)`;
+                if(Math.abs(diff) > 50){
+                    row.classList.add("swiping");
+                }
+            }
+        });
+
+        row.addEventListener("touchend", () => {
+
+            let diff = currentX - startX;
+
+            if(Math.abs(diff) > threshold && diff < 0){
+
+                const product = row.dataset.product;
+                delete cart[product];
+                updateCart();
+                return;
+            }
+
+            row.style.transform = "translateX(0)";
+            row.classList.remove("swiping");
+        });
+    });
+}
+let numpadValue = "";
+
+function openNumpadModal(){
+
+    numpadValue = "";
+
+    updateNumpadDisplay();
+
+    document.getElementById("numpadModal").style.display =
+        "flex";
+}
+
+function closeNumpadModal(){
+
+    document.getElementById("numpadModal").style.display =
+        "none";
+}
+
+function addNumpadNumber(number){
+
+    // maximal 2 Nachkommastellen
+    if(numpadValue.includes(",")){
+
+        const decimals = numpadValue.split(",")[1];
+
+        if(decimals.length >= 2){
+            return;
+        }
+    }
+
+    numpadValue += number;
+
+    updateNumpadDisplay();
+}
+
+function addNumpadComma(){
+
+    if(!numpadValue.includes(",")){
+
+        if(numpadValue === ""){
+            numpadValue = "0";
+        }
+
+        numpadValue += ",";
+    }
+
+    updateNumpadDisplay();
+}
+
+function clearNumpad(){
+
+    numpadValue = "";
+
+    updateNumpadDisplay();
+}
+
+function updateNumpadDisplay(){
+
+    const display = document.getElementById("numpadDisplay");
+
+    if(numpadValue === ""){
+        display.innerText = "0.00 €";
+        return;
+    }
+
+    display.innerText = numpadValue + " €";
+}
+
+function confirmNumpadAmount(){
+
+    let value = parseFloat(
+        numpadValue.replace(",", ".")
+    );
+
+    if(isNaN(value)){
+        return;
+    }
+
+    given += value;
+
+    updateChange();
+    updateCompleteButton();
+
+    closeNumpadModal();
+}
+function showPopup(message, title = "Hinweis"){
+
+    document.getElementById("systemPopupTitle").innerText =
+        title;
+
+    document.getElementById("systemPopupMessage").innerText =
+        message;
+
+    document.getElementById("systemPopup").style.display =
+        "flex";
+}
+
+function closeSystemPopup(){
+
+    document.getElementById("systemPopup").style.display =
+        "none";
+}
+let confirmCallback = null;
+
+function showConfirmPopup(
+    message,
+    onConfirm,
+    title = "Bestätigung"
+){
+
+    confirmCallback = onConfirm;
+
+    document.getElementById("confirmPopupTitle").innerText =
+        title;
+
+    document.getElementById("confirmPopupMessage").innerText =
+        message;
+
+    document.getElementById("confirmPopup").style.display =
+        "flex";
+}
+
+function closeConfirmPopup(){
+
+    document.getElementById("confirmPopup").style.display =
+        "none";
+
+    confirmCallback = null;
+}
+
+function confirmPopupYes(){
+
+    if(confirmCallback){
+        confirmCallback();
+    }
+
+    closeConfirmPopup();
+}
+function saveDeviceName(){
+
+    const input =
+        document.getElementById("deviceNameInput");
+
+    const value = input.value.trim();
+
+    if(value === ""){
+
+        showPopup(
+            "Bitte Gerätenamen eingeben.",
+            "Fehler"
+        );
+
+        return;
+    }
+
+    deviceName = value;
+
+    localStorage.setItem(
+        "deviceName",
+        deviceName
+    );
+
+    showPopup(
+        "Gerätename gespeichert.",
+        "Erfolg"
+    );
+}
+let deviceName =
+    localStorage.getItem("deviceName") || "Unbekannt";
+// Doppeltipp-Zoom verhindern
+let lastTouchEnd = 0;
+
+document.addEventListener("touchend", function (event) {
+
+    const now = Date.now();
+
+    if(now - lastTouchEnd <= 300){
+        event.preventDefault();
+    }
+
+    lastTouchEnd = now;
+
+}, { passive: false });
+
+
+// Pinch-Zoom verhindern
+document.addEventListener("gesturestart", function (e) {
+    e.preventDefault();
+});
+
+document.addEventListener("gesturechange", function (e) {
+    e.preventDefault();
+});
+
+document.addEventListener("gestureend", function (e) {
+    e.preventDefault();
+});
+renderHelperList();
+document.getElementById("deviceNameInput").value =
+    deviceName;
+function openSettingsPasswordPopup(){
+
+    // Wenn Einstellungen offen -> schließen
+    const settings =
+        document.getElementById("settingsModal");
+
+    if(settings.style.display === "flex"){
+
+        closeSettings();
+        return;
+    }
+
+    const popup =
+        document.getElementById(
+            "settingsLoginPopup"
+        );
+
+    popup.style.display = "flex";
+
+    const input =
+        document.getElementById(
+            "settingsPasswordField"
+        );
+
+    input.value = "";
+    input.type = "password";
+
+    setTimeout(()=>{
+        input.focus();
+    },100);
+}
+
+function closeSettingsPasswordPopup(){
+
+    document.getElementById(
+        "settingsLoginPopup"
+    ).style.display = "none";
+}
+
+function showSettingsPasswordShort(){
+
+    const input =
+        document.getElementById(
+            "settingsPasswordField"
+        );
+
+    input.type = "text";
+
+    setTimeout(()=>{
+        input.type = "password";
+    },1000);
+}
+
+async function checkSettingsPassword(){
+
+    const password =
+        document.getElementById(
+            "settingsPasswordField"
+        ).value;
+
+    if (!(await verifyWorkerPassword(password))) {
+        showPopup("Falsches Passwort oder Cloudflare nicht erreichbar.", "Fehler");
+        return;
+    }
+
+    closeSettingsPasswordPopup();
+
+    openRealSettings();
+}
+
+function openRealSettings(){
+
+    document.getElementById(
+        "settingsModal"
+    ).style.display = "flex";
+
+    renderDrinkSettings();
+    renderHelperList();
+
+    document.getElementById(
+        "deviceNameInput"
+    ).value = deviceName;
+}
+renderProducts();
+updateCart();
+function saveCurrentSale(){
+
+    localStorage.setItem(
+        "currentCart",
+        JSON.stringify(cart)
+    );
+
+    localStorage.setItem(
+        "currentGiven",
+        given
+    );
+}
+updateChange();
+function openHelperQuery(){
+
+    const container =
+        document.getElementById(
+            "helperQueryButtons"
+        );
+
+    container.innerHTML = "";
+
+    const categories = [
+        "Helfer",
+        "Band",
+        "Techniker"
+    ];
+
+    categories.forEach(category=>{
+
+        const title =
+            document.createElement("h3");
+
+        title.innerText = category;
+
+        container.appendChild(title);
+
+        helpers
+            .filter(
+                h=>h.category===category
+            )
+            .forEach(helper=>{
+
+                const btn =
+                    document.createElement(
+                        "button"
+                    );
+
+                btn.innerText =
+                    helper.name;
+
+                btn.onclick = () =>
+                    showHelperStats(
+                        helper.name
+                    );
+
+                container.appendChild(btn);
+            });
+    });
+
+    document.getElementById(
+        "helperQueryModal"
+    ).style.display = "flex";
+}
+
+function closeHelperQuery(){
+
+    document.getElementById(
+        "helperQueryModal"
+    ).style.display = "none";
+}
+function showHelperStats(helperName){
+
+    // Helferauswahl schließen
+    closeHelperQuery();
+
+    const helperEntries =
+        eigenbedarfLog.filter(
+            e => e.helper === helperName
+        );
+
+    if(helperEntries.length === 0){
+
+        showPopup(
+            helperName +
+            "\n\nKeine Einträge vorhanden.",
+            "Helfer-Abfrage"
+        );
+
+        return;
+    }
+
+    const products = {};
+
+    helperEntries.forEach(entry => {
+
+        if(!products[entry.product]){
+            products[entry.product] = 0;
+        }
+
+        products[entry.product] +=
+            entry.quantity;
+    });
+
+    let text = "";
+
+    Object.keys(products)
+        .sort()
+        .forEach(product => {
+
+            text +=
+                product +
+                ": " +
+                products[product] +
+                "\n";
+        });
+
+    showPopup(
+        text,
+        "👤 " + helperName
+    );
+}
+</script>
+<!-- PASSWORT MODAL -->
+<div class="settings" id="passwordModal">
+    <div class="settings-content" style="max-width:400px;">
+
+        <h2>🔒 Passwort eingeben</h2>
+
+        <div style="display:flex; gap:10px; align-items:center;">
+
+            <input
+                type="password"
+                id="resetPasswordInput"
+                placeholder="Passwort"
+                style="flex:1;"
+            >
+
+            <button
+                type="button"
+                onclick="showPasswordTemporarily()"
+                style="width:70px;"
+            >
+                👁
+            </button>
+
+        </div>
+
+        <div style="display:flex; gap:10px;">
+            <button onclick="confirmResetRegister()">
+                Bestätigen
+            </button>
+
+            <button class="cancel-button" onclick="closePasswordModal()">
+                Abbrechen
+            </button>
+        </div>
+
+    </div>
+</div>
+<!-- EXPORT MODAL -->
+<div class="settings" id="exportModal">
+    <div class="settings-content" style="max-width:400px;">
+
+        <h2>📁 Export</h2>
+
+        <p style="font-size:1.1rem;">
+            Daten wirklich exportieren?
+        </p>
+
+        <div style="display:flex; gap:10px;">
+
+            <button onclick="confirmExportExcel()">
+                Exportieren
+            </button>
+
+            <button
+                class="cancel-button"
+                onclick="closeExportModal()"
+            >
+                Abbrechen
+            </button>
+
+        </div>
+
+    </div>
+</div>
+<!-- TAGESABSCHLUSS MODAL -->
+<div class="settings" id="dayCloseModal">
+    <div class="settings-content" style="max-width:450px;">
+
+        <h2>📊 Tagesabschluss</h2>
+
+        <div style="
+            font-size:2rem;
+            font-weight:bold;
+            text-align:center;
+            margin:20px 0;
+            color:#00FF7F;
+        ">
+            <span id="dayCloseTotal">0.00</span> €
+        </div>
+
+        <button onclick="closeDayCloseModal()">
+            Schließen
+        </button>
+
+    </div>
+</div>
+<!-- ZAHLENBLOCK MODAL -->
+<div class="settings" id="numpadModal">
+    <div class="settings-content" style="max-width:420px;">
+
+        <h2>💶 Betrag eingeben</h2>
+
+        <div style="
+            display:flex;
+            gap:10px;
+            align-items:center;
+            margin-bottom:20px;
+        ">
+
+            <div id="numpadDisplay" style="
+                flex:1;
+                background:#111;
+                border:2px solid #00FF7F;
+                border-radius:12px;
+                padding:18px;
+                font-size:2rem;
+                text-align:right;
+                min-height:70px;
+                display:flex;
+                align-items:center;
+                justify-content:flex-end;
+            ">
+                0.00 €
+            </div>
+
+            <button
+                onclick="confirmNumpadAmount()"
+                style="
+                    width:80px;
+                    background:#00FF7F;
+                    color:#000;
+                    font-size:2rem;
+                    font-weight:bold;
+                "
+            >
+                ✔
+            </button>
+
+        </div>
+
+        <div style="
+            display:grid;
+            grid-template-columns:repeat(3,1fr);
+            gap:10px;
+        ">
+
+            <button onclick="addNumpadNumber('1')">1</button>
+            <button onclick="addNumpadNumber('2')">2</button>
+            <button onclick="addNumpadNumber('3')">3</button>
+
+            <button onclick="addNumpadNumber('4')">4</button>
+            <button onclick="addNumpadNumber('5')">5</button>
+            <button onclick="addNumpadNumber('6')">6</button>
+
+            <button onclick="addNumpadNumber('7')">7</button>
+            <button onclick="addNumpadNumber('8')">8</button>
+            <button onclick="addNumpadNumber('9')">9</button>
+
+            <button onclick="clearNumpad()">C</button>
+            <button onclick="addNumpadNumber('0')">0</button>
+            <button onclick="addNumpadComma()">,</button>
+
+        </div>
+
+        <button
+            class="cancel-button"
+            style="margin-top:15px;"
+            onclick="closeNumpadModal()"
+        >
+            Abbrechen
+        </button>
+
+    </div>
+</div>
+<!-- SYSTEM POPUP -->
+<div class="settings" id="systemPopup">
+
+    <div class="settings-content" style="max-width:450px;">
+
+        <h2 id="systemPopupTitle">Hinweis</h2>
+
+        <div
+            id="systemPopupMessage"
+            style="
+                font-size:1.15rem;
+                line-height:1.5;
+                margin:10px 0 20px;
+                white-space:pre-line;
+            "
+        >
+        </div>
+
+        <button onclick="closeSystemPopup()">
+            OK
+        </button>
+
+    </div>
+
+</div>
+<!-- CONFIRM POPUP -->
+<div class="settings" id="confirmPopup">
+
+    <div class="settings-content" style="max-width:450px;">
+
+        <h2 id="confirmPopupTitle">Bestätigung</h2>
+
+        <div
+            id="confirmPopupMessage"
+            style="
+                font-size:1.15rem;
+                line-height:1.5;
+                margin:10px 0 20px;
+                white-space:pre-line;
+            "
+        ></div>
+
+        <div style="display:flex; gap:10px;">
+
+            <button
+                class="success-button"
+                onclick="confirmPopupYes()"
+            >
+                Ja
+            </button>
+
+            <button
+                class="cancel-button"
+                onclick="closeConfirmPopup()"
+            >
+                Nein
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+<!-- SETTINGS LOGIN POPUP -->
+<div class="settings" id="settingsLoginPopup">
+
+    <div class="settings-content" style="max-width:400px;">
+
+        <h2>⚙ Einstellungen entsperren</h2>
+
+        <div style="
+            display:flex;
+            gap:10px;
+            align-items:center;
+            margin:20px 0;
+        ">
+
+            <input
+                type="password"
+                id="settingsPasswordField"
+                placeholder="Passwort"
+                style="flex:1;"
+            >
+
+            <button
+                type="button"
+                onclick="showSettingsPasswordShort()"
+                style="width:70px;"
+            >
+                👁
+            </button>
+
+        </div>
+
+        <div style="display:flex; gap:10px;">
+
+            <button
+                class="success-button"
+                onclick="checkSettingsPassword()"
+            >
+                Öffnen
+            </button>
+
+            <button
+                class="cancel-button"
+                onclick="closeSettingsPasswordPopup()"
+            >
+                Abbrechen
+            </button>
+
+        </div>
+
+    </div>
+
+</div>
+<!-- HELFER ABFRAGE -->
+<div class="settings" id="helperQueryModal">
+
+    <div class="settings-content">
+
+        <h2>📋 Helfer auswählen</h2>
+
+        <div id="helperQueryButtons"></div>
+
+        <button
+            class="cancel-button"
+            onclick="closeHelperQuery()"
+        >
+            Schließen
+        </button>
+
+    </div>
+
+</div>
+</body>
+</html>
