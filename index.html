@@ -383,7 +383,7 @@ input, textarea {
     font-size: clamp(1rem, 2.5vw, 1.4rem);
 }
 #helperButtons {
-    display: row;
+    display: grid;
     grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
     gap: 0.8rem;
 }
@@ -447,6 +447,8 @@ input, textarea {
     .big-display {
         font-size: 34px;
     }
+}
+
 @media (max-width: 768px) and (orientation: portrait) {
 
     .right {
@@ -484,7 +486,6 @@ input, textarea {
         width: 100%;
     }
 }
-}
 </style>
 </head>
 
@@ -499,8 +500,6 @@ input, textarea {
             <h2>Warenkorb</h2>
             <div id="cartList"></div>
         </div>
-
-        <div class="checkout-summary">
 
     <div class="checkout-summary">
 
@@ -517,7 +516,6 @@ input, textarea {
     Verkauf<br>abschließen
 </button>
 
-</div>
             <div class="money-grid">
                 <button onclick="pay(5)">5</button>
                 <button onclick="pay(10)">10</button>
@@ -628,16 +626,20 @@ const KASSE_WORKER_URL = "https://subkultur-kasse-backup.weybrechtmanuel90.worke
 let workerPassword = null;
 
 async function verifyWorkerPassword(password) {
-    const response = await fetch(KASSE_WORKER_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "verify", password })
-    });
-    let result = {};
-    try { result = await response.json(); } catch (_) {}
-    if (!response.ok || !result.success) return false;
-    workerPassword = password;
-    return true;
+    try {
+        const response = await fetch(KASSE_WORKER_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "verify", password })
+        });
+        let result = {};
+        try { result = await response.json(); } catch (_) {}
+        if (!response.ok || !result.success) return false;
+        workerPassword = password;
+        return true;
+    } catch (_) {
+        return false;
+    }
 }
 
 let savedCart =
