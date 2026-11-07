@@ -634,11 +634,19 @@ async function verifyWorkerPassword(password) {
         });
         let result = {};
         try { result = await response.json(); } catch (_) {}
-        if (!response.ok || !result.success) return false;
+        if (response.status === 401) {
+            return { success: false, message: "Das Cloudflare-Passwort ist falsch (HTTP 401)." };
+        }
+        if (response.status === 405) {
+            return { success: false, message: "Der Cloudflare-Worker ist nicht mit dieser Kasse kompatibel (HTTP 405). Bitte den Code aus Worker-Code_Cloudflare.txt im Worker veröffentlichen." };
+        }
+        if (!response.ok || !result.success) {
+            return { success: false, message: result.message || `Cloudflare antwortet mit HTTP ${response.status}.` };
+        }
         workerPassword = password;
-        return true;
-    } catch (_) {
-        return false;
+        return { success: true };
+    } catch (error) {
+        return { success: false, message: "Cloudflare ist nicht erreichbar oder die CORS-Anfrage wurde blockiert. Worker-Adresse und erlaubte Origin prüfen." };
     }
 }
 
@@ -708,13 +716,13 @@ function renderProducts(){
     // Pfand +
     const pfandPlus = document.createElement("button");
     pfandPlus.innerText="Pfand +";
-    pfandPlus.onclick=()=>addPfand(2);
+    pfandPlus.onclick=()=>addPfand(1);
     container.appendChild(pfandPlus);
 
     // Pfand -
     const pfandMinus = document.createElement("button");
     pfandMinus.innerText="Pfand -";
-    pfandMinus.onclick=()=>addPfand(-2);
+    pfandMinus.onclick=()=>addPfand(-1);
     container.appendChild(pfandMinus);
 }
 
@@ -1564,8 +1572,9 @@ async function resetRegister(){
 
     const password = prompt("Passwort zum Zurücksetzen eingeben:");
     if (password === null) return;
-    if (!(await verifyWorkerPassword(password))) {
-        showPopup("Falsches Passwort oder Cloudflare nicht erreichbar.", "Fehler");
+    const verification = await verifyWorkerPassword(password);
+    if (!verification.success) {
+        showPopup(verification.message, "Fehler");
         return;
     }
 
@@ -1623,8 +1632,9 @@ async function confirmResetRegister(){
     const input = document.getElementById("resetPasswordInput");
     const password = input.value;
 
-    if (!(await verifyWorkerPassword(password))) {
-        showPopup("Falsches Passwort oder Cloudflare nicht erreichbar.");
+    const verification = await verifyWorkerPassword(password);
+    if (!verification.success) {
+        showPopup(verification.message, "Fehler");
         return;
     }
 
@@ -1976,8 +1986,9 @@ async function checkSettingsPassword(){
             "settingsPasswordField"
         ).value;
 
-    if (!(await verifyWorkerPassword(password))) {
-        showPopup("Falsches Passwort oder Cloudflare nicht erreichbar.", "Fehler");
+    const verification = await verifyWorkerPassword(password);
+    if (!verification.success) {
+        showPopup(verification.message, "Fehler");
         return;
     }
 
