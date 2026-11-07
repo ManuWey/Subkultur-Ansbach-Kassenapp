@@ -576,6 +576,10 @@ input, textarea {
         <h3>📊 Tagesabschluss</h3>
         <button onclick="dayClose()">Tagesumsatz anzeigen</button>
 
+        <h3>🍾 Pfand</h3>
+        <label for="pfandAmountInput">Pfandbetrag pro Flasche (Euro)</label>
+        <input type="number" id="pfandAmountInput" min="0" step="0.01" inputmode="decimal">
+
         <h3>📁 Export</h3>
         <button onclick="openExportModal()">Export .xls</button>
 
@@ -700,6 +704,11 @@ let eigenbedarfLog = JSON.parse(localStorage.getItem("eigenbedarf")) || [];
 
 let cart = savedCart || {};
 let given = savedGiven || 0;
+const DEFAULT_PFAND_AMOUNT = 2;
+let pfandAmount = Number(localStorage.getItem("pfandAmount"));
+if (!Number.isFinite(pfandAmount) || pfandAmount < 0) {
+    pfandAmount = DEFAULT_PFAND_AMOUNT;
+}
 
 /* PRODUKTE */
 function renderProducts(){
@@ -715,14 +724,14 @@ function renderProducts(){
 
     // Pfand +
     const pfandPlus = document.createElement("button");
-    pfandPlus.innerText="Pfand +";
-    pfandPlus.onclick=()=>addPfand(2);
+    pfandPlus.innerText=`Pfand + (${pfandAmount.toLocaleString("de-DE", {minimumFractionDigits: 2, maximumFractionDigits: 2})} €)`;
+    pfandPlus.onclick=()=>addPfand(1);
     container.appendChild(pfandPlus);
 
     // Pfand -
     const pfandMinus = document.createElement("button");
-    pfandMinus.innerText="Pfand -";
-    pfandMinus.onclick=()=>addPfand(-2);
+    pfandMinus.innerText=`Pfand - (${pfandAmount.toLocaleString("de-DE", {minimumFractionDigits: 2, maximumFractionDigits: 2})} €)`;
+    pfandMinus.onclick=()=>addPfand(-1);
     container.appendChild(pfandMinus);
 }
 
@@ -747,9 +756,10 @@ function removeOneFromCart(productName){
 	saveCurrentSale();
 	enableSwipe();
 }
-function addPfand(amount){
+function addPfand(direction){
 
-    const name = amount > 0 ? "Pfand +" : "Pfand -";
+    const name = direction > 0 ? "Pfand +" : "Pfand -";
+    const amount = direction * pfandAmount;
 
     if(!cart[name]){
         cart[name] = {
@@ -1190,6 +1200,14 @@ function closeSettings(){
     document.getElementById("settingsModal").style.display="none";
 }
 function saveSettings(){
+    const pfandInput = document.getElementById("pfandAmountInput");
+    const newPfandAmount = Number(pfandInput.value);
+    if (!Number.isFinite(newPfandAmount) || newPfandAmount < 0) {
+        showPopup("Bitte einen gültigen Pfandbetrag ab 0,00 € eingeben.", "Ungültiger Betrag");
+        return;
+    }
+    pfandAmount = Math.round(newPfandAmount * 100) / 100;
+    localStorage.setItem("pfandAmount", String(pfandAmount));
     saveHelpers();
     saveDrinks();
     renderProducts();
@@ -1234,6 +1252,7 @@ function downloadLocalBackup(){
                 sales: sales,
                 eigenbedarf: eigenbedarfLog,
                 deviceName: deviceName,
+                pfandAmount: pfandAmount,
                 currentCart: cart,
                 currentGiven: given,
                 darkMode: document.body.classList.contains("dark")
@@ -1282,6 +1301,9 @@ function restoreLocalBackup(event){
             localStorage.setItem("sales", JSON.stringify(d.sales));
             localStorage.setItem("eigenbedarf", JSON.stringify(d.eigenbedarf));
             if(typeof d.deviceName === "string") localStorage.setItem("deviceName", d.deviceName);
+            if(Number.isFinite(Number(d.pfandAmount)) && Number(d.pfandAmount) >= 0) {
+                localStorage.setItem("pfandAmount", String(Number(d.pfandAmount)));
+            }
             if(d.currentCart && typeof d.currentCart === "object") localStorage.setItem("currentCart", JSON.stringify(d.currentCart));
             else localStorage.removeItem("currentCart");
             if(Number.isFinite(Number(d.currentGiven))) localStorage.setItem("currentGiven", String(d.currentGiven));
@@ -2009,6 +2031,7 @@ function openRealSettings(){
     document.getElementById(
         "deviceNameInput"
     ).value = deviceName;
+    document.getElementById("pfandAmountInput").value = pfandAmount.toFixed(2);
 }
 renderProducts();
 updateCart();
